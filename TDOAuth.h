@@ -37,7 +37,9 @@
 
 @interface TDOAuth : NSObject {
     NSURL *url;
+    NSString *hostAndPathWithoutQueryParams;
     NSString *signature_secret;
+    NSDictionary *oauth_params; // these are pre-percent encoded
     NSDictionary *params; // these are pre-percent encoded
     NSString *method;
 }
@@ -150,3 +152,10 @@ extern int TDOAuthUTCTimeOffset;
 - (NSMutableString *)add:(NSString *)s;
 - (NSMutableString *)chomp;
 @end
+
+
+@interface NSDictionary (TweetDeck)
++ (NSDictionary *) dictionaryByMerging: (NSDictionary *) dict1 with: (NSDictionary *) dict2;
+- (NSDictionary *) dictionaryByMergingWith: (NSDictionary *) dict;
+@end
+

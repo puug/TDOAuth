@@ -73,6 +73,28 @@ int TDOAuthUTCTimeOffset = 0;
 }
 @end
 
+@implementation NSDictionary (Merge)
++ (NSDictionary *) dictionaryByMerging: (NSDictionary *) dict1 with: (NSDictionary *) dict2 {
+    NSMutableDictionary * result = [NSMutableDictionary dictionaryWithDictionary:dict1];
+    [dict2 enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop) {
+        if ([dict1 objectForKey:key]) {
+            if ([obj isKindOfClass:[NSDictionary class]]) {
+                NSDictionary * newVal = [[dict1 objectForKey: key] dictionaryByMergingWith: (NSDictionary *) obj];
+                [result setObject: newVal forKey: key];
+            } else {
+                [result setObject: obj forKey: key];
+            }
+        } else {
+            [result setObject:obj forKey:key];
+        }
+    }];
+    
+    return (NSDictionary *) [[result mutableCopy] autorelease];
+}
+- (NSDictionary *) dictionaryByMergingWith: (NSDictionary *) dict {
+    return [[self class] dictionaryByMerging: self with: dict];
+}
+@end
 
 
 // If your input string isn't 20 characters this won't work.
@@ -114,14 +136,16 @@ static NSString* timestamp() {
 
 
 
-@implementation TDOAuth
+@implementation TDOAuth {
+    
+}
 
 - (id)initWithConsumerKey:(NSString *)consumerKey
            consumerSecret:(NSString *)consumerSecret
               accessToken:(NSString *)accessToken
               tokenSecret:(NSString *)tokenSecret
 {
-    params = [NSDictionary dictionaryWithObjectsAndKeys:
+    oauth_params = [NSDictionary dictionaryWithObjectsAndKeys:
               consumerKey,  @"oauth_consumer_key",
               nonce(),      @"oauth_nonce",
               timestamp(),  @"oauth_timestamp",
@@ -130,27 +154,39 @@ static NSString* timestamp() {
               accessToken,  @"oauth_token",
               // LEAVE accessToken last or you'll break XAuth attempts
               nil];
+    params = [[NSDictionary alloc] init];
     signature_secret = [NSString stringWithFormat:@"%@&%@", consumerSecret, tokenSecret ?: @""];
     return self;
 }
 
 - (NSString *)signature_base {
     NSMutableString *p3 = [NSMutableString stringWithCapacity:256];
-    NSArray *keys = [[params allKeys] sortedArrayUsingSelector:@selector(compare:)];
-    for (NSString *key in keys)
-        [[[[p3 add:[key pcen]] add:@"="] add:[params objectForKey:key]] add:@"&"];
+    NSDictionary *combinedParams = [NSDictionary dictionaryByMerging:oauth_params with:params];
+    
+    NSArray *keys = [[combinedParams allKeys] sortedArrayUsingSelector:@selector(compare:)];
+    for (NSString *key in keys) {
+        NSLog(@"Key: %@", key);
+        [[[[p3 add:[key pcen]] add:@"="] add:[combinedParams objectForKey:key]] add:@"&"];
+    }
     [p3 chomp];
+    
+    NSLog(@"Sig base before: %@", p3);
+    NSLog(@"Sig base after: %@", p3.pcen);
+    
+    NSLog(@"Sign Path: %@", url.path);
+    NSLog(@"Sign Path after: %@", url.path.pcen);
 
-    return [NSString stringWithFormat:@"%@&%@%%3A%%2F%%2F%@%@&%@",
+    return [NSString stringWithFormat:@"%@&%@%%3A%%2F%%2F%@&%@",
             method,
             url.scheme.lowercaseString,
-            url.host.lowercaseString.pcen,
-            url.path.pcen,
+            hostAndPathWithoutQueryParams.pcen,
             p3.pcen];
 }
 
 - (NSString *)signature {
-    NSData *sigbase = [[self signature_base] dataUsingEncoding:NSUTF8StringEncoding];
+    NSString *sigBaseString = [self signature_base];
+    NSLog(@"Sig base: %@", sigBaseString);
+    NSData *sigbase = [sigBaseString dataUsingEncoding:NSUTF8StringEncoding];
     NSData *secret = [signature_secret dataUsingEncoding:NSUTF8StringEncoding];
 
     uint8_t digest[20] = {0};
@@ -165,8 +201,8 @@ static NSString* timestamp() {
 - (NSString *)authorizationHeader {
     NSMutableString *header = [NSMutableString stringWithCapacity:512];
     [header add:@"OAuth "];
-    for (NSString *key in params.allKeys)
-        [[[[header add:key] add:@"=\""] add:[params objectForKey:key]] add:@"\", "];
+    for (NSString *key in oauth_params.allKeys)
+        [[[[header add:key] add:@"=\""] add:[oauth_params objectForKey:key]] add:@"\", "];
     [[[header add:@"oauth_signature=\""] add:self.signature.pcen] add:@"\""];
     return header;
 }
@@ -246,6 +282,7 @@ static NSString* timestamp() {
     // likely.
     NSString *encodedPathWithoutQuery = [unencodedPathWithoutQuery stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 
+    NSLog(@"EncodedPathWithoutQuery: %@", encodedPathWithoutQuery);
     id path = [oauth addParameters:unencodedParameters];
     if (path) {
         [path insertString:@"?" atIndex:0];
@@ -253,8 +290,10 @@ static NSString* timestamp() {
     } else {
         path = encodedPathWithoutQuery;
     }
+    NSLog(@"Path: %@", path);
 
     oauth->method = @"GET";
+    oauth->hostAndPathWithoutQueryParams = [NSString stringWithFormat:@"%@%@", host, unencodedPathWithoutQuery]; //NSUrl.path drops trailing slashes
     oauth->url = [[NSURL alloc] initWithString:[NSString stringWithFormat:@"%@://%@%@", scheme, host, path]];
 
     NSURLRequest *rq = [oauth request];
