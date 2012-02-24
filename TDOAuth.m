@@ -317,15 +317,21 @@ static NSString* timestamp() {
                                            consumerSecret:consumerSecret
                                               accessToken:accessToken
                                               tokenSecret:tokenSecret];
+    
+    oauth->hostAndPathWithoutQueryParams = [NSString stringWithFormat:@"%@%@", host, unencodedPath]; //NSUrl.path drops trailing slashes
     oauth->url = [[NSURL alloc] initWithScheme:@"https" host:host path:unencodedPath];
     oauth->method = @"POST";
 
-    NSMutableString *postbody = [oauth addParameters:unencodedParameters];
+    NSError *error = nil;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:unencodedParameters options:NSJSONWritingPrettyPrinted error:&error];
+    NSString *postbody = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    
     NSMutableURLRequest *rq = [oauth request];
 
     if (postbody.length) {
         [rq setHTTPBody:[postbody dataUsingEncoding:NSUTF8StringEncoding]];
-        [rq setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
+        [rq setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+        [rq setValue:@"application/json" forHTTPHeaderField:@"Accept"];
         [rq setValue:[NSString stringWithFormat:@"%u", rq.HTTPBody.length] forHTTPHeaderField:@"Content-Length"];
     }
 
