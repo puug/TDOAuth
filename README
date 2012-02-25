@@ -11,3 +11,14 @@ Tested against Foursquare and Twitter. If you test it against something else,
 please fork and list the services you used it against here. Thanks.
 
 —Max Howell <max@tweetdeck.com>
+
+Fixes in this fork:
+* Maintain port number in sig base if provided
+* Request params not duplicated in Authorization header
+* Trailing slash maintained if provided in sig base
+
+There's probably a cleaner way to implement these fixes, but I'm a newbie to Obj-C and time is an issue. 
+Also contains POST customisation which sends JSON rather than form data. Use at your own risk.
+
+Thanks.
+-puug
