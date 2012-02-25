@@ -41,8 +41,6 @@
 
 int TDOAuthUTCTimeOffset = 0;
 
-
-
 @implementation NSString (TweetDeck)
 - (id)pcen {
     NSString* rv = (NSString *) CFURLCreateStringByAddingPercentEscapes(NULL, (CFStringRef) self, NULL, (CFStringRef) @"!*'();:@&=+$,/?%#[]", kCFStringEncodingUTF8);
@@ -165,16 +163,9 @@ static NSString* timestamp() {
     
     NSArray *keys = [[combinedParams allKeys] sortedArrayUsingSelector:@selector(compare:)];
     for (NSString *key in keys) {
-        NSLog(@"Key: %@", key);
         [[[[p3 add:[key pcen]] add:@"="] add:[combinedParams objectForKey:key]] add:@"&"];
     }
     [p3 chomp];
-    
-    NSLog(@"Sig base before: %@", p3);
-    NSLog(@"Sig base after: %@", p3.pcen);
-    
-    NSLog(@"Sign Path: %@", url.path);
-    NSLog(@"Sign Path after: %@", url.path.pcen);
 
     return [NSString stringWithFormat:@"%@&%@%%3A%%2F%%2F%@&%@",
             method,
@@ -185,7 +176,6 @@ static NSString* timestamp() {
 
 - (NSString *)signature {
     NSString *sigBaseString = [self signature_base];
-    NSLog(@"Sig base: %@", sigBaseString);
     NSData *sigbase = [sigBaseString dataUsingEncoding:NSUTF8StringEncoding];
     NSData *secret = [signature_secret dataUsingEncoding:NSUTF8StringEncoding];
 
@@ -282,7 +272,6 @@ static NSString* timestamp() {
     // likely.
     NSString *encodedPathWithoutQuery = [unencodedPathWithoutQuery stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 
-    NSLog(@"EncodedPathWithoutQuery: %@", encodedPathWithoutQuery);
     id path = [oauth addParameters:unencodedParameters];
     if (path) {
         [path insertString:@"?" atIndex:0];
@@ -290,10 +279,11 @@ static NSString* timestamp() {
     } else {
         path = encodedPathWithoutQuery;
     }
-    NSLog(@"Path: %@", path);
 
     oauth->method = @"GET";
-    oauth->hostAndPathWithoutQueryParams = [NSString stringWithFormat:@"%@%@", host, unencodedPathWithoutQuery]; //NSUrl.path drops trailing slashes
+    
+    //NSUrl.path drops trailing slashes and does not maintain port if provided in the host
+    oauth->hostAndPathWithoutQueryParams = [NSString stringWithFormat:@"%@%@", host, unencodedPathWithoutQuery]; 
     oauth->url = [[NSURL alloc] initWithString:[NSString stringWithFormat:@"%@://%@%@", scheme, host, path]];
 
     NSURLRequest *rq = [oauth request];
@@ -323,6 +313,7 @@ static NSString* timestamp() {
     oauth->method = @"POST";
 
     NSError *error = nil;
+    // puug customisation here to send JSON data rather than form type. Params not in the sig base
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:unencodedParameters options:NSJSONWritingPrettyPrinted error:&error];
     NSString *postbody = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
     

@@ -39,8 +39,8 @@
     NSURL *url;
     NSString *hostAndPathWithoutQueryParams;
     NSString *signature_secret;
-    NSDictionary *oauth_params; // these are pre-percent encoded
-    NSDictionary *params; // these are pre-percent encoded
+    NSDictionary *oauth_params; // these are pre-percent encoded. Represents the oauth_* params.
+    NSDictionary *params; // these are pre-percent encoded. Represents the request params.
     NSString *method;
 }
 
@@ -153,7 +153,10 @@ extern int TDOAuthUTCTimeOffset;
 - (NSMutableString *)chomp;
 @end
 
-
+/**
+  Basic dictonary util for merging two dictonaries. We do this to merge the oauth_param and the request params when
+  determining the sig base
+*/
 @interface NSDictionary (TweetDeck)
 + (NSDictionary *) dictionaryByMerging: (NSDictionary *) dict1 with: (NSDictionary *) dict2;
 - (NSDictionary *) dictionaryByMergingWith: (NSDictionary *) dict;
